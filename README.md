@@ -1,13 +1,13 @@
 # Debate AI
 
-A Python application to generate debates between AI agents using the Gemini API. The application allows users to define different AI personas and debate settings, then orchestrates a debate between these agents.
+A Python web application to generate debates between AI agents using the Gemini API. The application allows users to define different AI personas and debate settings, then orchestrates a debate between these agents.
 
 ## Features
 
-- Define multiple AI agents with unique roles and personas
-- Include a moderator agent to guide the debate flow
 - Configure debate topics and parameters
+- Define multiple AI agents with unique roles and personas
 - AI-driven selection of which agent speaks next based on conversation flow
+- Web interface for viewing real-time AI debates
 
 ## Requirements
 
@@ -33,13 +33,15 @@ A Python application to generate debates between AI agents using the Gemini API.
    - Number of max turns 
    - Agent profiles (name, role, persona)
 
-2. Run the application:
+2. Run the web application:
    ```
-   python main.py
+   python app.py
    ```
 
-3. The debate will execute automatically, starting with the moderator introducing the topic and participants.
+3. Open a web browser and navigate to `http://localhost:5000`
 
-4. The debate will conclude when either:
+4. The web interface will display the debate in real time.
+
+5. The debate will conclude when either:
    - Maximum turns are reached, or
    - The moderator concluding the debate.

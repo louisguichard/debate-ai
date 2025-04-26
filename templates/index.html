@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debate AI</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #333;
+        }
+        #debate-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        #debate-info {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        #transcript {
+            margin-top: 20px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .speaker {
+            color: #0066cc;
+        }
+        .role {
+            color: #666;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+        .turn {
+            color: #999;
+            font-size: 0.8em;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            background-color: #0055aa;
+        }
+        .status {
+            margin-top: 15px;
+            font-style: italic;
+            color: #666;
+        }
+        .error {
+            color: #cc0000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Debate AI</h1>
+        <p>Watch AI agents debate topics in real-time</p>
+    </header>
+
+    <div id="debate-container">
+        <div id="control-panel">
+            <button id="start-debate">Start Debate</button>
+            <div id="status" class="status">Ready to start debate</div>
+        </div>
+
+        <div id="debate-info" style="display: none;">
+            <h2 id="debate-title"></h2>
+            <p id="debate-description"></p>
+            <div id="agents-list"></div>
+        </div>
+
+        <div id="transcript"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startButton = document.getElementById('start-debate');
+            const statusDiv = document.getElementById('status');
+            const debateInfoDiv = document.getElementById('debate-info');
+            const debateTitleEl = document.getElementById('debate-title');
+            const debateDescEl = document.getElementById('debate-description');
+            const agentsListEl = document.getElementById('agents-list');
+            const transcriptDiv = document.getElementById('transcript');
+            
+            let isDebateRunning = false;
+            let autoFetchTimeout = null;
+            
+            // Start a new debate
+            startButton.addEventListener('click', function() {
+                // Reset UI
+                transcriptDiv.innerHTML = '';
+                debateInfoDiv.style.display = 'none';
+                startButton.disabled = true;
+                statusDiv.textContent = 'Starting debate...';
+                
+                // Clear any existing auto-fetch
+                if (autoFetchTimeout) {
+                    clearTimeout(autoFetchTimeout);
+                }
+                
+                // Start the debate
+                fetch('/start_debate')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            statusDiv.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+                            startButton.disabled = false;
+                            return;
+                        }
+                        
+                        // Show debate info
+                        debateTitleEl.textContent = data.title;
+                        debateDescEl.textContent = data.description;
+                        
+                        // Show agents list
+                        let agentsHtml = '<h3>Participants:</h3><ul>';
+                        data.agents.forEach(agent => {
+                            agentsHtml += `<li><strong>${agent.name}</strong> (${agent.role})</li>`;
+                        });
+                        agentsHtml += '</ul>';
+                        agentsListEl.innerHTML = agentsHtml;
+                        
+                        debateInfoDiv.style.display = 'block';
+                        isDebateRunning = true;
+                        
+                        // Add first turn to transcript
+                        if (data.turn && data.turn.entry) {
+                            addMessageToTranscript(data.turn.entry);
+                        }
+                        
+                        // Check if debate is already concluded
+                        if (data.turn && data.turn.concluded) {
+                            statusDiv.textContent = 'Debate concluded';
+                            startButton.disabled = false;
+                            isDebateRunning = false;
+                        } else {
+                            statusDiv.textContent = 'Debate in progress...';
+                            // Auto fetch next turn after a delay
+                            autoFetchTimeout = setTimeout(fetchNextTurn, 3000);
+                        }
+                    })
+                    .catch(error => {
+                        statusDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                        startButton.disabled = false;
+                    });
+            });
+            
+            // Fetch next turn automatically
+            function fetchNextTurn() {
+                if (!isDebateRunning) return;
+                
+                statusDiv.textContent = 'Generating next turn...';
+                
+                fetch('/generate')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error && !data.entry) {
+                            // Only show error if it's not just an indication that debate concluded
+                            if (!data.concluded) {
+                                statusDiv.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+                            }
+                            
+                            if (data.concluded) {
+                                statusDiv.textContent = 'Debate concluded';
+                                startButton.disabled = false;
+                                isDebateRunning = false;
+                            } else {
+                                // Try again after a delay to be resilient
+                                autoFetchTimeout = setTimeout(fetchNextTurn, 5000);
+                            }
+                            return;
+                        }
+                        
+                        // Add message to transcript
+                        if (data.entry) {
+                            addMessageToTranscript(data.entry);
+                        }
+                        
+                        // Check if debate has concluded
+                        if (data.concluded) {
+                            statusDiv.textContent = 'Debate concluded';
+                            startButton.disabled = false;
+                            isDebateRunning = false;
+                        } else {
+                            statusDiv.textContent = 'Debate in progress...';
+                            // Schedule next turn
+                            autoFetchTimeout = setTimeout(fetchNextTurn, 3000);
+                        }
+                    })
+                    .catch(error => {
+                        statusDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                        // Try again after a longer delay if there was an error
+                        autoFetchTimeout = setTimeout(fetchNextTurn, 5000);
+                    });
+            }
+            
+            // Helper function to add a message to the transcript
+            function addMessageToTranscript(entry) {
+                const messageEl = document.createElement('div');
+                messageEl.className = 'message';
+                
+                const headerEl = document.createElement('div');
+                headerEl.className = 'message-header';
+                
+                const speakerEl = document.createElement('span');
+                speakerEl.className = 'speaker';
+                speakerEl.textContent = entry.speaker;
+                headerEl.appendChild(speakerEl);
+                
+                const roleEl = document.createElement('span');
+                roleEl.className = 'role';
+                roleEl.textContent = entry.role;
+                headerEl.appendChild(roleEl);
+                
+                const turnEl = document.createElement('span');
+                turnEl.className = 'turn';
+                turnEl.textContent = `Turn ${entry.turn}`;
+                headerEl.appendChild(turnEl);
+                
+                messageEl.appendChild(headerEl);
+                
+                const contentEl = document.createElement('div');
+                contentEl.className = 'message-content';
+                contentEl.innerHTML = entry.message.replace(/\n/g, '<br>');
+                messageEl.appendChild(contentEl);
+                
+                transcriptDiv.appendChild(messageEl);
+                
+                // Scroll to the new message
+                messageEl.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html> 

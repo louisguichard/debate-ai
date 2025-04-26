@@ -4,7 +4,7 @@ import time
 
 
 class Debate:
-    def __init__(self, title, description, agents, client, max_turns=10):
+    def __init__(self, title, description, agents, client, max_turns):
         self.title = title
         self.description = description
         self.agents = agents
@@ -12,7 +12,7 @@ class Debate:
         self.transcript = []
         self.current_turn = 0
         self.model = "gemini-2.0-flash"
-        self.turn_delay = 10
+        self.delay = 5
         self.debate_concluded = False
         self.client = client
 
@@ -21,17 +21,18 @@ class Debate:
         debate_context = f"""
 Title: {self.title}
 Description: {self.description}
+Participants: {", ".join([f"{a.name} ({a.role})" for a in self.agents])}
 
 You are {agent.name}, {agent.role}.
-Persona: {agent.persona}
+Your persona: {agent.persona}
 
 Current debate status:
 """
         # Add the transcript so far
         for entry in self.transcript:
             debate_context += f"{entry['speaker']}: {entry['message']}\n\n"
-        if self.transcript == []:
-            debate_context += "The debate hasn't started yet.\n\n"
+        if self.current_turn == 0:
+            debate_context += "The debate hasn't started yet. Introduce the topic and the participants.\n\n"
 
         debate_context += f"""
 Based on the debate so far, provide your next contribution as {agent.name}.
@@ -44,7 +45,7 @@ Keep your response short (50-100 words maximum).
     def determine_next_speaker(self):
         """Determine who should speak next based on the current debate context."""
         # First turn - find moderator by role
-        if not self.transcript:
+        if self.current_turn == 0:
             for agent in self.agents:
                 if "moderator" in agent.role.lower():
                     return agent
@@ -110,37 +111,39 @@ Do not include any other text, just the name.
             print(f"Error generating response for {agent.name}: {e}")
             return f"[Error generating response for {agent.name}]"
 
-    def run_debate(self):
-        """Run the debate until it reaches a natural conclusion or max turns."""
-        print(f"\n=== DEBATE: {self.title} ===")
-        print("Participants:")
-        for agent in self.agents:
-            print(f"- {agent.name} ({agent.role})")
-        print("\n--- TRANSCRIPT ---\n")
+    def generate_next_turn(self):
+        """Generate the next turn in the debate, updating the transcript internally."""
 
-        while self.current_turn < self.max_turns and not self.debate_concluded:
-            self.current_turn += 1
-            print(f"Turn {self.current_turn}/{self.max_turns}")
+        # Determine who speaks next
+        speaker = self.determine_next_speaker()
+        time.sleep(self.delay)
 
-            # Determine who speaks next
-            speaker = self.determine_next_speaker()
+        # Generate the response
+        message = self.generate_agent_response(speaker)
+        time.sleep(self.delay)
 
-            # Generate the response
-            message = self.generate_agent_response(speaker)
+        # Increment turn
+        self.current_turn += 1
 
-            # Record in transcript
-            entry = {
-                "turn": self.current_turn,
-                "speaker": speaker.name,
-                "message": message,
-            }
-            self.transcript.append(entry)
+        # Record in transcript
+        entry = {
+            "turn": self.current_turn,
+            "speaker": speaker.name,
+            "message": message,
+        }
+        self.transcript.append(entry)
 
-            # Display
-            print(f"{speaker.name, speaker.role}: {message}\n")
+        # Check if debate is concluded
+        if (
+            "the debate is now concluded" in message.lower()
+            or self.current_turn >= self.max_turns
+        ):
+            self.debate_concluded = True
 
-            # Delay between turns
-            time.sleep(self.turn_delay)
-
-        print("\n--- DEBATE CONCLUDED ---\n")
-        return self.transcript
+        # Return entry for UI
+        return {
+            "turn": self.current_turn,
+            "speaker": speaker.name,
+            "role": speaker.role,
+            "message": message,
+        }
