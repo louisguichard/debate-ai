@@ -37,8 +37,7 @@ Current debate status:
         debate_context += f"""
 Based on the debate so far, provide your next contribution as {agent.name}.
 Your response should reflect your role and persona.
-Be concise, focused, and respond directly to previous points when appropriate.
-Keep your response short (50-100 words maximum).
+Be concise and to the point. You can respond with just a few words, a sentence or sometimes a few sentences.
 """
         return debate_context
 
