@@ -1,38 +1,115 @@
+import google.genai as genai
+import os
 import json
 import random
-import time
+from dotenv import load_dotenv
+
+load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("Please set GEMINI_API_KEY in environment variables.")
+
+
+class Agent:
+    """Represents a participant in the debate."""
+
+    def __init__(self, name, role, persona):
+        self.name = name
+        self.role = role
+        self.persona = persona
+
+    def to_dict(self):
+        return {"name": self.name, "role": self.role, "persona": self.persona}
 
 
 class Debate:
-    def __init__(self, title, description, agents, client, max_turns):
-        self.title = title
-        self.description = description
+    """Manages the state and flow of the AI debate."""
+
+    def __init__(self, config_path="debate_config.json", model_name="gemini-2.0-flash"):
+        """Initialize the debate with its parameters."""
+        self.config_path = config_path
+        self.model_name = model_name
+        self.client = genai.Client(api_key=GEMINI_API_KEY)
+        self.reset()
+        self.initialize_debate()
+
+    def initialize_debate(self):
+        """Loads debate configuration from the JSON file."""
+
+        # Load the debate config
+        with open(self.config_path, "r") as f:
+            config = json.load(f)
+
+        # Create agents from config
+        agents = []
+        for agent_config in config["agents"]:
+            agent = Agent(
+                name=agent_config["name"],
+                role=agent_config["role"],
+                persona=agent_config.get("persona", ""),
+            )
+            agents.append(agent)
+
+        # Create moderator if not in the list
+        has_moderator = any("moderator" in agent.role.lower() for agent in agents)
+        if not has_moderator:
+            moderator = Agent(
+                name="Moderator",
+                role="Debate Moderator",
+                persona="Your task is to introduce the debate and participants, then guide the discussion. You may introduce new aspects, ask specific participants to address certain points, or summarize key points made. If you believe the debate should conclude now, clearly state 'The debate is now concluded' at the end of your message.",
+            )
+        agents = [moderator] + agents
+
+        # Initialize debate parameters
+        self.title = config["title"]
+        self.description = config["description"]
+        self.max_turns = config.get("max_turns", 10)
         self.agents = agents
-        self.max_turns = max_turns
+
+        # Initialize the next speaker
+        self.update_next_speaker()
+
+    def reset(self):
+        """Resets the debate state to its initial condition."""
         self.transcript = []
         self.current_turn = 0
-        self.model = "gemini-2.0-flash"
-        self.delay = 5
-        self.debate_concluded = False
-        self.client = client
+        self.debate_running = False
+        self.debate_finished = False
+        self.next_speaker = None
+        print("Debate reset.")
 
-    def generate_agent_prompt(self, agent):
+    def start(self):
+        """Starts the debate."""
+        self.debate_running = True
+        self.debate_finished = False
+        print("Debate started.")
+
+    def stop(self):
+        """Stops the debate."""
+        self.debate_running = False
+        print("Debate stopped.")
+
+    def generate_prompt(self, agent):
         """Generate a prompt for the agent to respond in the debate."""
         debate_context = f"""
-Title: {self.title}
-Description: {self.description}
+Debate topic: {self.title}
+Debate description: {self.description}
 Participants: {", ".join([f"{a.name} ({a.role})" for a in self.agents])}
 
-You are {agent.name}, {agent.role}.
+You are {agent.name}, playing the role of {agent.role}.
 Your persona: {agent.persona}
 
-Current debate status:
+Current debate transcript:
 """
-        # Add the transcript so far
-        for entry in self.transcript:
-            debate_context += f"{entry['speaker']}: {entry['message']}\n\n"
+        # Special instruction for first turn
         if self.current_turn == 0:
-            debate_context += "The debate hasn't started yet. Introduce the topic and the participants.\n\n"
+            debate_context += "(The debate is just starting. As the moderator, introduce the topic and participants.)"
+
+        # Add the transcript so far
+        else:
+            for entry in self.transcript:
+                debate_context += f"{entry['speaker']}: {entry['message']}"
 
         debate_context += f"""
 Based on the debate so far, provide your next contribution as {agent.name}.
@@ -41,15 +118,20 @@ Be concise and to the point. You can respond with just a few words, a sentence o
 """
         return debate_context
 
-    def determine_next_speaker(self):
-        """Determine who should speak next based on the current debate context."""
-        # First turn - find moderator by role
+    def update_next_speaker(self):
+        """Update the next speaker based on the current debate context."""
+        # Moderator is always the first speaker
         if self.current_turn == 0:
             for agent in self.agents:
                 if "moderator" in agent.role.lower():
-                    return agent
+                    self.next_speaker = agent
+                    return
+            # If no moderator found
+            print("Warning: No moderator found. Falling back to first agent.")
+            self.next_speaker = self.agents[0]
+            return
 
-        # Determine the next speaker
+        # Use Gemini to determine the next speaker
         prompt = f"""
 Based on the following debate transcript, determine which participant should speak next.
 Choose the participant who would most naturally continue the conversation based on:
@@ -60,89 +142,74 @@ Choose the participant who would most naturally continue the conversation based 
 Debate Title: {self.title}
 Debate Description: {self.description}
 
-Participants:
-{json.dumps([a.to_dict() for a in self.agents], indent=2)}
+Participants and their Roles:
+{json.dumps([{"name": a.name, "role": a.role} for a in self.agents], indent=2)}
 
-Transcript so far:
+Transcript:
 {json.dumps(self.transcript, indent=2)}
 
-IMPORTANT: Return ONLY the EXACT full name of the next speaker from the list below:
-{", ".join([agent.name for agent in self.agents])}
-Do not include any other text, just the name.
+Which participant should speak next to continue the debate?
+
+Answer with ONLY the EXACT full name of the participant from this list: {", ".join([agent.name for agent in self.agents])}
+Do not include any other text, reasoning, or formatting. Just the name.
 """
         response = self.client.models.generate_content(
-            model=self.model, contents=prompt
+            model=self.model_name, contents=prompt
         )
-        next_speaker_name = response.text.strip()
+        next_speaker = response.text.strip()
 
-        # Match the name to an agent - exact match first
+        # Find the agent by name
         for agent in self.agents:
-            if agent.name == next_speaker_name:
-                return agent
+            if agent.name.lower() == next_speaker.lower():
+                self.next_speaker = agent
+                return
 
-        # If no match, select someone randomly
+        # Fallback: don't choose the last speaker
         print(
-            f"Warning: Could not identify next speaker from '{next_speaker_name}', falling back to random selection"
+            f"Warning: Could not identify next speaker from response '{next_speaker}'. Falling back to non-repeating random selection."
         )
-        last_speaker = self.transcript[-1]["speaker"]
-        remaining_agents = [
-            agent for agent in self.agents if agent.name != last_speaker
-        ]
-        selected = random.choice(remaining_agents)
-        print(f"Random speaker selected: {selected.name}")
-        return selected
+        last_speaker = self.transcript[-1]["speaker"] if self.transcript else None
+        available_agents = [a for a in self.agents if a.name != last_speaker]
+        self.next_speaker = random.choice(available_agents)
 
-    def generate_agent_response(self, agent):
-        """Generate a response from the agent using Gemini."""
-        prompt = self.generate_agent_prompt(agent)
-        try:
-            response = self.client.models.generate_content(
-                model=self.model, contents=prompt
-            )
-            message = response.text.strip()
+    def run_next_turn(self):
+        """Determines the next speaker, generates their message, and updates the state."""
 
-            # Check if conclusion phrase is in the message
-            if "the debate is now concluded" in message.lower():
-                self.debate_concluded = True
+        if self.current_turn >= self.max_turns:
+            self.debate_finished = False
+            self.debate_running = False
+            print(f"Reached maximum turns ({self.max_turns}).")
+            return None
+        print(f"Turn {self.current_turn + 1}: {self.next_speaker.name}")
 
-            return message
-        except Exception as e:
-            print(f"Error generating response for {agent.name}: {e}")
-            return f"[Error generating response for {agent.name}]"
+        prompt = self.generate_prompt(self.next_speaker)
 
-    def generate_next_turn(self):
-        """Generate the next turn in the debate, updating the transcript internally."""
+        response = self.client.models.generate_content(
+            model=self.model_name, contents=prompt
+        )
+        message = response.text.strip()
 
-        # Determine who speaks next
-        speaker = self.determine_next_speaker()
-        time.sleep(self.delay)
+        # Check for moderator's conclusion phrase
+        if "the debate is now concluded" in message.lower():
+            self.debate_finished = True
+            self.debate_running = False
+            print("Debate concluded by moderator.")
 
-        # Generate the response
-        message = self.generate_agent_response(speaker)
-        time.sleep(self.delay)
-
-        # Increment turn
-        self.current_turn += 1
-
-        # Record in transcript
-        entry = {
-            "turn": self.current_turn,
-            "speaker": speaker.name,
-            "message": message,
-        }
+        entry = {"speaker": self.next_speaker.name, "message": message}
         self.transcript.append(entry)
+        self.current_turn += 1
+        return entry
 
-        # Check if debate is concluded
-        if (
-            "the debate is now concluded" in message.lower()
-            or self.current_turn >= self.max_turns
-        ):
-            self.debate_concluded = True
-
-        # Return entry for UI
+    def get_state(self):
+        """Returns the current state of the debate for the UI."""
         return {
-            "turn": self.current_turn,
-            "speaker": speaker.name,
-            "role": speaker.role,
-            "message": message,
+            "title": self.title,
+            "description": self.description,
+            "agents": [a.to_dict() for a in self.agents],
+            "transcript": self.transcript,
+            "current_turn": self.current_turn,
+            "max_turns": self.max_turns,
+            "is_running": self.debate_running,
+            "is_finished": self.debate_finished,
+            "next_speaker": self.next_speaker.name if self.next_speaker else None,
         }

@@ -6,269 +6,381 @@
     <title>Debate AI</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: sans-serif;
             line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            max-width: 900px;
-            margin: 0 auto;
-            background-color: #f5f5f5;
-        }
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        h1 {
+            margin: 20px;
+            background-color: #f4f4f4;
             color: #333;
         }
-        #debate-container {
-            background-color: white;
-            border-radius: 8px;
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
             padding: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        h1 {
+            margin-bottom: 5px;
+        }
+        h2 {
+             margin-top: 0;
+             font-weight: normal;
+             font-size: 1.1em;
+             color: #666;
+             margin-bottom: 20px;
         }
         #debate-info {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        #transcript {
-            margin-top: 20px;
-        }
-        .message {
             margin-bottom: 15px;
             padding: 15px;
+            background-color: #e9e9e9;
             border-radius: 5px;
-            background-color: #f9f9f9;
         }
-        .message-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-weight: bold;
+        #transcript-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9e9e9;
+        }
+        #transcript {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #fff;
+        }
+        .transcript-entry {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #ddd;
+        }
+        .transcript-entry:last-child {
+             border-bottom: none;
+             margin-bottom: 0;
         }
         .speaker {
-            color: #0066cc;
-        }
-        .role {
-            color: #666;
-            font-size: 0.9em;
-            font-style: italic;
-        }
-        .turn {
-            color: #999;
-            font-size: 0.8em;
-        }
-        button {
-            background-color: #0066cc;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        button:hover:not(:disabled) {
-            background-color: #0055aa;
-        }
-        .status {
-            margin-top: 15px;
-            font-style: italic;
-            color: #666;
-        }
-        .error {
-            color: #cc0000;
             font-weight: bold;
+            color: #0056b3;
         }
-        #control-panel {
+        .message {
+            margin-left: 10px;
+            white-space: pre-wrap; /* Preserve line breaks */
+        }
+        #controls {
             text-align: center;
             margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            color: #fff;
+        }
+        .btn-start, .btn-resume {
+            background-color: #28a745; /* Green */
+        }
+        .btn-start:hover, .btn-resume:hover {
+            background-color: #218838;
+        }
+        .btn-stop {
+            background-color: #dc3545; /* Red */
+        }
+         .btn-stop:hover {
+            background-color: #c82333;
+        }
+        .btn-reset {
+             background-color: #ffc107; /* Orange */
+             color: #333;
+        }
+        .btn-reset:hover {
+             background-color: #e0a800;
+        }
+        .hidden {
+            display: none;
+        }
+        #status {
+             text-align: center;
+             font-style: italic;
+             color: #666;
+             margin-top: 10px;
+             min-height: 1.2em; /* Prevent layout jump */
         }
     </style>
 </head>
 <body>
-    <header>
+    <div class="container">
         <h1>Debate AI</h1>
-        <p>Watch AI agents debate topics in real-time</p>
-    </header>
+        <h2>Watch AI agents debate topics in real-time</h2>
 
-    <div id="debate-container">
-        <div id="control-panel">
-            <button id="start-debate">Start Debate</button>
-            <div id="status" class="status">Ready to start debate</div>
-        </div>
-
-        <div id="debate-info" style="display: none;">
-            <h2 id="debate-title"></h2>
+        <div id="debate-info" class="hidden">
+            <h3 id="debate-title"></h3>
             <p id="debate-description"></p>
-            <div id="agents-list"></div>
+            <h4>Participants:</h4>
+            <ul id="debate-participants"></ul>
         </div>
 
-        <div id="transcript"></div>
+        <div id="transcript-container" class="hidden">
+            <h4>Transcript</h4>
+            <div id="transcript"></div>
+        </div>
+        <div id="status"></div>
+
+        <div id="controls">
+            <button id="start-button" class="btn-start">Start Debate</button>
+            <button id="stop-button" class="btn-stop hidden">Stop Debate</button>
+            <button id="resume-button" class="btn-resume hidden">Resume Debate</button>
+            <button id="reset-button" class="btn-reset hidden">Reset Debate</button>
+        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const startButton = document.getElementById('start-debate');
-            const statusDiv = document.getElementById('status');
-            const debateInfoDiv = document.getElementById('debate-info');
-            const debateTitleEl = document.getElementById('debate-title');
-            const debateDescEl = document.getElementById('debate-description');
-            const agentsListEl = document.getElementById('agents-list');
-            const transcriptDiv = document.getElementById('transcript');
+        const startButton = document.getElementById('start-button');
+        const stopButton = document.getElementById('stop-button');
+        const resumeButton = document.getElementById('resume-button');
+        const resetButton = document.getElementById('reset-button');
+        const debateInfoDiv = document.getElementById('debate-info');
+        const debateTitle = document.getElementById('debate-title');
+        const debateDescription = document.getElementById('debate-description');
+        const debateParticipantsList = document.getElementById('debate-participants');
+        const transcriptContainer = document.getElementById('transcript-container');
+        const transcriptDiv = document.getElementById('transcript');
+        const statusDiv = document.getElementById('status');
+
+        let eventSource = null;
+        let isStoppedByUser = false; // Flag to track if user manually stopped the debate
+
+        // Attempts to fetch initial state - with empty data, we'll just show the start button
+        async function initializeUI() {
+            // Default initial UI state - just show the start button
+            debateInfoDiv.classList.add('hidden');
+            transcriptContainer.classList.add('hidden');
+            startButton.classList.remove('hidden');
+            stopButton.classList.add('hidden');
+            resumeButton.classList.add('hidden');
+            resetButton.classList.add('hidden');
+            statusDiv.textContent = '';
+        }
+
+        function updateUI(state) {
+            console.log("Updating UI with state:", state);
+            if (!state || Object.keys(state).length === 0) {
+                // If we received an empty state, just show the start button
+                debateInfoDiv.classList.add('hidden');
+                transcriptContainer.classList.add('hidden');
+                startButton.classList.remove('hidden');
+                stopButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                resetButton.classList.add('hidden');
+                statusDiv.textContent = '';
+                return;
+            }
+
+            // Update Info
+            debateTitle.textContent = state.title || 'Untitled Debate';
+            debateDescription.textContent = state.description || 'No description.';
+            debateParticipantsList.innerHTML = ''; // Clear old list
+            if(state.agents) {
+                state.agents.forEach(agent => {
+                    const li = document.createElement('li');
+                    li.textContent = `${agent.name} (${agent.role})`;
+                    debateParticipantsList.appendChild(li);
+                });
+            }
+
+            // Update Transcript
+            transcriptDiv.innerHTML = ''; // Clear old transcript
+            if (state.transcript) {
+                state.transcript.forEach(entry => addTranscriptEntry(entry.speaker, entry.message));
+                scrollToBottom();
+            }
+
+            // Update Controls and Visibility
+            const debateStarted = state.transcript && (state.transcript.length > 0 || state.is_running || state.is_finished);
+
+            debateInfoDiv.classList.toggle('hidden', !debateStarted);
+            transcriptContainer.classList.toggle('hidden', !debateStarted);
+
+            if (state.is_running) {
+                // Use next speaker name if available
+                statusDiv.textContent = state.next_speaker
+                    ? `Generating response from ${state.next_speaker}...`
+                    : 'Generating response...';
+                startButton.classList.add('hidden');
+                stopButton.classList.remove('hidden');
+                resumeButton.classList.add('hidden');
+                resetButton.classList.add('hidden');
+                isStoppedByUser = false; // Reset flag when running
+            } else if (state.is_finished) {
+                statusDiv.textContent = 'Debate finished.';
+                startButton.classList.add('hidden');
+                stopButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                resetButton.classList.remove('hidden');
+                closeEventSource();
+            } else { // Not running, not finished
+                 if (state.current_turn >= state.max_turns) { // Paused at max turns
+                    statusDiv.textContent = `Debate paused: Reached maximum turns (${state.max_turns}).`;
+                    startButton.classList.add('hidden');
+                    stopButton.classList.add('hidden');
+                    resumeButton.classList.remove('hidden');
+                    resetButton.classList.remove('hidden');
+                 } else if (state.transcript && state.transcript.length > 0) { // Stopped mid-debate before max turns
+                    statusDiv.textContent = 'Debate paused.';
+                    startButton.classList.add('hidden');
+                    stopButton.classList.add('hidden');
+                    resumeButton.classList.remove('hidden');
+                    resetButton.classList.remove('hidden');
+                 } else { // Initial state
+                    statusDiv.textContent = ''; // No initial message
+                    startButton.classList.remove('hidden');
+                    stopButton.classList.add('hidden');
+                    resumeButton.classList.add('hidden');
+                    resetButton.classList.add('hidden');
+                 }
+                 closeEventSource();
+            }
+        }
+
+        function addTranscriptEntry(speaker, message) {
+            const entryDiv = document.createElement('div');
+            entryDiv.classList.add('transcript-entry');
+
+            const speakerSpan = document.createElement('span');
+            speakerSpan.classList.add('speaker');
+            speakerSpan.textContent = speaker + ': ';
+
+            const messageSpan = document.createElement('span');
+            messageSpan.classList.add('message');
+            messageSpan.textContent = message;
+
+            entryDiv.appendChild(speakerSpan);
+            entryDiv.appendChild(messageSpan);
+            transcriptDiv.appendChild(entryDiv);
+        }
+
+        function scrollToBottom() {
+             transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+        }
+
+        function setupEventSource() {
+            closeEventSource(); // Close any existing connection
             
-            let isDebateRunning = false;
-            let autoFetchTimeout = null;
+            console.log("Setting up Server-Sent Events connection...");
+            eventSource = new EventSource('/stream_debate');
             
-            // Start a new debate
-            startButton.addEventListener('click', function() {
-                // Reset UI
-                transcriptDiv.innerHTML = '';
-                debateInfoDiv.style.display = 'none';
-                startButton.disabled = true;
-                statusDiv.textContent = 'Starting debate...';
-                
-                // Clear any existing auto-fetch
-                if (autoFetchTimeout) {
-                    clearTimeout(autoFetchTimeout);
+            eventSource.onmessage = function(event) {
+                if (isStoppedByUser) {
+                    closeEventSource();
+                    return;
                 }
                 
-                // Start the debate
-                fetch('/start_debate')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            statusDiv.innerHTML = `<span class="error">Error: ${data.error}</span>`;
-                            startButton.disabled = false;
-                            return;
-                        }
-                        
-                        // Show debate info
-                        debateTitleEl.textContent = data.title;
-                        debateDescEl.textContent = data.description;
-                        
-                        // Show agents list
-                        let agentsHtml = '<h3>Participants:</h3><ul>';
-                        data.agents.forEach(agent => {
-                            agentsHtml += `<li><strong>${agent.name}</strong> (${agent.role})</li>`;
-                        });
-                        agentsHtml += '</ul>';
-                        agentsListEl.innerHTML = agentsHtml;
-                        
-                        debateInfoDiv.style.display = 'block';
-                        isDebateRunning = true;
-                        
-                        // Add first turn to transcript
-                        if (data.turn && data.turn.entry) {
-                            addMessageToTranscript(data.turn.entry);
-                        }
-                        
-                        // Check if debate is already concluded
-                        if (data.turn && data.turn.concluded) {
-                            statusDiv.textContent = 'Debate concluded';
-                            startButton.disabled = false;
-                            isDebateRunning = false;
-                        } else {
-                            statusDiv.textContent = 'Debate in progress...';
-                            // Auto fetch next turn after a delay
-                            autoFetchTimeout = setTimeout(fetchNextTurn, 3000);
-                        }
-                    })
-                    .catch(error => {
-                        statusDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-                        startButton.disabled = false;
-                    });
-            });
+                const data = JSON.parse(event.data);
+                console.log("SSE event received:", data);
+                updateUI(data);
+            };
             
-            // Fetch next turn automatically
-            function fetchNextTurn() {
-                if (!isDebateRunning) return;
-                
-                statusDiv.textContent = 'Generating next turn...';
-                
-                fetch('/generate')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error && !data.entry) {
-                            // Only show error if it's not just an indication that debate concluded
-                            if (!data.concluded) {
-                                statusDiv.innerHTML = `<span class="error">Error: ${data.error}</span>`;
-                            }
-                            
-                            if (data.concluded) {
-                                statusDiv.textContent = 'Debate concluded';
-                                startButton.disabled = false;
-                                isDebateRunning = false;
-                            } else {
-                                // Try again after a delay to be resilient
-                                autoFetchTimeout = setTimeout(fetchNextTurn, 5000);
-                            }
-                            return;
-                        }
-                        
-                        // Add message to transcript
-                        if (data.entry) {
-                            addMessageToTranscript(data.entry);
-                        }
-                        
-                        // Check if debate has concluded
-                        if (data.concluded) {
-                            statusDiv.textContent = 'Debate concluded';
-                            startButton.disabled = false;
-                            isDebateRunning = false;
-                        } else {
-                            statusDiv.textContent = 'Debate in progress...';
-                            // Schedule next turn
-                            autoFetchTimeout = setTimeout(fetchNextTurn, 3000);
-                        }
-                    })
-                    .catch(error => {
-                        statusDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-                        // Try again after a longer delay if there was an error
-                        autoFetchTimeout = setTimeout(fetchNextTurn, 5000);
-                    });
+            eventSource.onerror = function(error) {
+                console.error("SSE connection error:", error);
+                closeEventSource();
+                statusDiv.textContent = "Connection error. Please try again.";
+            };
+        }
+        
+        function closeEventSource() {
+            if (eventSource) {
+                console.log("Closing SSE connection");
+                eventSource.close();
+                eventSource = null;
             }
-            
-            // Helper function to add a message to the transcript
-            function addMessageToTranscript(entry) {
-                const messageEl = document.createElement('div');
-                messageEl.className = 'message';
+        }
+
+        // --- Event Listeners ---
+        startButton.addEventListener('click', async () => {
+            try {
+                isStoppedByUser = false; // Reset flag
+                statusDiv.textContent = 'Starting debate...';
+                const response = await fetch('/start', { method: 'POST' });
+                if (!response.ok) throw new Error('Failed to start');
                 
-                const headerEl = document.createElement('div');
-                headerEl.className = 'message-header';
+                // Use the state returned directly from the start endpoint
+                const state = await response.json();
+                updateUI(state);
                 
-                const speakerEl = document.createElement('span');
-                speakerEl.className = 'speaker';
-                speakerEl.textContent = entry.speaker;
-                headerEl.appendChild(speakerEl);
-                
-                const roleEl = document.createElement('span');
-                roleEl.className = 'role';
-                roleEl.textContent = entry.role;
-                headerEl.appendChild(roleEl);
-                
-                const turnEl = document.createElement('span');
-                turnEl.className = 'turn';
-                turnEl.textContent = `Turn ${entry.turn}`;
-                headerEl.appendChild(turnEl);
-                
-                messageEl.appendChild(headerEl);
-                
-                const contentEl = document.createElement('div');
-                contentEl.className = 'message-content';
-                contentEl.innerHTML = entry.message.replace(/\n/g, '<br>');
-                messageEl.appendChild(contentEl);
-                
-                transcriptDiv.appendChild(messageEl);
-                
-                // Scroll to the new message
-                messageEl.scrollIntoView({ behavior: 'smooth' });
+                // Start listening for debate updates
+                setupEventSource();
+            } catch (error) {
+                console.error("Error starting debate:", error);
+                statusDiv.textContent = `Error: ${error.message}`;
             }
         });
+
+        stopButton.addEventListener('click', async () => {
+            try {
+                isStoppedByUser = true; // Set flag immediately
+                statusDiv.textContent = 'Stopping debate...';
+                closeEventSource(); // Stop SSE connection
+                const response = await fetch('/stop', { method: 'POST' });
+                if (!response.ok) throw new Error('Failed to stop');
+                
+                // Use the state returned directly from the stop endpoint
+                const state = await response.json();
+                updateUI(state);
+            } catch (error) {
+                console.error("Error stopping debate:", error);
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        resumeButton.addEventListener('click', async () => {
+            try {
+                isStoppedByUser = false; // Reset flag
+                statusDiv.textContent = 'Resuming debate...';
+                const response = await fetch('/resume', { method: 'POST' });
+                if (!response.ok) throw new Error('Failed to resume');
+                
+                // Use the state returned directly from the resume endpoint
+                const state = await response.json();
+                updateUI(state);
+                
+                // Start listening for debate updates again
+                setupEventSource();
+            } catch (error) {
+                console.error("Error resuming debate:", error);
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        resetButton.addEventListener('click', async () => {
+            try {
+                statusDiv.textContent = 'Resetting debate...';
+                closeEventSource();
+                const response = await fetch('/reset', { method: 'POST' });
+                if (!response.ok) throw new Error('Failed to reset');
+                
+                // Reset UI elements
+                transcriptDiv.innerHTML = '';
+                debateInfoDiv.classList.add('hidden');
+                transcriptContainer.classList.add('hidden');
+                startButton.classList.remove('hidden');
+                stopButton.classList.add('hidden');
+                resumeButton.classList.add('hidden');
+                resetButton.classList.add('hidden');
+                statusDiv.textContent = '';
+            } catch (error) {
+                console.error("Error resetting debate:", error);
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        // Initialize UI when the page loads
+        document.addEventListener('DOMContentLoaded', initializeUI);
     </script>
+
 </body>
 </html> 
