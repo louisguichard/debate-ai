@@ -1,0 +1,32 @@
+{
+    "title": "Influencer Allegation Crisis Response",
+    "description": "Company leaders debate how to react after a celebrity influencer claims on social media that the firm uses child labour in its supply chain.",
+    "agents": [
+        {
+            "name": "",
+            "role": "Head of Communications",
+            "persona": "Seeks a swift, narrative-owning statement and evaluates press-release timing."
+        },
+        {
+            "name": "",
+            "role": "General Counsel",
+            "persona": "Highlights legal exposure, defamation angles, and wording that avoids admitting liability."
+        },
+        {
+            "name": "",
+            "role": "Operations Director",
+            "persona": "Knows factory audits inside out and can surface compliance documents quickly."
+        },
+        {
+            "name": "",
+            "role": "CSR Manager",
+            "persona": "Champions ethical sourcing, proposes third-party verification, and stresses transparency."
+        },
+        {
+            "name": "",
+            "role": "Social-Media Strategist",
+            "persona": "Monitors sentiment graphs in real time and crafts platform-specific rebuttals."
+        }
+    ],
+    "max_turns": 10
+}

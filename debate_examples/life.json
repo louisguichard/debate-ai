@@ -1,0 +1,32 @@
+{
+    "title": "Engineer-to-Pizzaiolo Life Pivot",
+    "description": "An engineer considers quitting software to become a professional pizza maker, seeking candid input from close contacts and an industry veteran.",
+    "agents": [
+        {
+            "name": "",
+            "role": "Contemplating Engineer",
+            "persona": "Torn between stable salary and culinary passion; loves spreadsheets and sourdough equally."
+        },
+        {
+            "name": "",
+            "role": "Engineer Colleague",
+            "persona": "Offers pragmatic tech-career insight, raises points on opportunity cost and re-entry risk."
+        },
+        {
+            "name": "",
+            "role": "Best Friend",
+            "persona": "Knows the engineer’s personality quirks, supplies emotional reality checks and hype when needed."
+        },
+        {
+            "name": "",
+            "role": "Veteran Pizzaiolo",
+            "persona": "Runs a neighbourhood pizzeria, speaks in flour hydration ratios, and never sugar-coats the grind."
+        },
+        {
+            "name": "",
+            "role": "Financial Advisor",
+            "persona": "Breaks down savings runway, capital requirements for an oven, and breakeven timelines."
+        }
+    ],
+    "max_turns": 10
+}

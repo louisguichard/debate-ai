@@ -101,6 +101,12 @@
         .btn-reset:hover {
              background-color: #e0a800;
         }
+        .btn-action {
+            background-color: #007bff; /* Blue */
+        }
+        .btn-action:hover {
+            background-color: #0069d9;
+        }
         .hidden {
             display: none;
         }
@@ -111,6 +117,50 @@
              margin-top: 10px;
              min-height: 1.2em; /* Prevent layout jump */
         }
+        .options-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .option {
+            flex: 1;
+            text-align: center;
+            margin: 0 5px;
+        }
+        .form-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9e9e9;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .agent-form {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        .agent-container {
+            margin-top: 15px;
+        }
+        .form-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -118,8 +168,82 @@
         <h1>Debate AI</h1>
         <h2>Watch AI agents debate topics in real-time</h2>
 
+        <!-- Options for starting a debate -->
+        <div id="debate-options">
+            <div class="options-container">
+                <div class="option">
+                    <button id="create-debate-button" class="btn-action">Create Debate</button>
+                </div>
+                <div class="option">
+                    <button id="select-debate-button" class="btn-action">Select Debate</button>
+                </div>
+            </div>
+
+            <!-- Create Debate Form -->
+            <div id="create-form" class="form-container hidden">
+                <h3>Create a New Debate</h3>
+                <div class="form-group">
+                    <label for="debate-title">Debate Title:</label>
+                    <input type="text" id="debate-title" placeholder="Enter debate title">
+                </div>
+                <div class="form-group">
+                    <label for="debate-description-input">Description:</label>
+                    <textarea id="debate-description-input" rows="3" placeholder="Enter debate description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="max-turns">Maximum Turns:</label>
+                    <input type="number" id="max-turns" value="10" min="1" max="30">
+                </div>
+                
+                <div class="agent-container">
+                    <h4>Debate Participants</h4>
+                    <p>Add participants for your debate (moderator will be added automatically)</p>
+                    <div id="agents-list">
+                        <!-- Agent forms will be added here -->
+                        <div class="agent-form">
+                            <div class="form-group">
+                                <label>Name:</label>
+                                <input type="text" class="agent-name" placeholder="Participant name">
+                            </div>
+                            <div class="form-group">
+                                <label>Role:</label>
+                                <input type="text" class="agent-role" placeholder="Participant role">
+                            </div>
+                            <div class="form-group">
+                                <label>Persona:</label>
+                                <textarea class="agent-persona" rows="2" placeholder="Describe participant's persona"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="add-agent-button" class="btn-action">Add Another Participant</button>
+                </div>
+
+                <div class="form-buttons">
+                    <button id="create-start-button" class="btn-start">Start Debate</button>
+                    <button id="create-cancel-button" class="btn-stop">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Select Debate Form -->
+            <div id="select-form" class="form-container hidden">
+                <h3>Select a Debate Example</h3>
+                <div class="form-group">
+                    <label for="debate-select">Choose a debate:</label>
+                    <select id="debate-select">
+                        {% for example in debate_examples %}
+                        <option value="{{ example.filename }}">{{ example.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-buttons">
+                    <button id="select-start-button" class="btn-start">Start Debate</button>
+                    <button id="select-cancel-button" class="btn-stop">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <div id="debate-info" class="hidden">
-            <h3 id="debate-title"></h3>
+            <h3 id="debate-title-display"></h3>
             <p id="debate-description"></p>
             <h4>Participants:</h4>
             <ul id="debate-participants"></ul>
@@ -132,7 +256,6 @@
         <div id="status"></div>
 
         <div id="controls">
-            <button id="start-button" class="btn-start">Start Debate</button>
             <button id="stop-button" class="btn-stop hidden">Stop Debate</button>
             <button id="resume-button" class="btn-resume hidden">Resume Debate</button>
             <button id="reset-button" class="btn-reset hidden">Reset Debate</button>
@@ -140,12 +263,24 @@
     </div>
 
     <script>
-        const startButton = document.getElementById('start-button');
+        // Elements for debate UI
+        const debateOptions = document.getElementById('debate-options');
+        const createDebateButton = document.getElementById('create-debate-button');
+        const selectDebateButton = document.getElementById('select-debate-button');
+        const createForm = document.getElementById('create-form');
+        const selectForm = document.getElementById('select-form');
+        const createStartButton = document.getElementById('create-start-button');
+        const selectStartButton = document.getElementById('select-start-button');
+        const createCancelButton = document.getElementById('create-cancel-button');
+        const selectCancelButton = document.getElementById('select-cancel-button');
+        const addAgentButton = document.getElementById('add-agent-button');
+        const agentsList = document.getElementById('agents-list');
+        
         const stopButton = document.getElementById('stop-button');
         const resumeButton = document.getElementById('resume-button');
         const resetButton = document.getElementById('reset-button');
         const debateInfoDiv = document.getElementById('debate-info');
-        const debateTitle = document.getElementById('debate-title');
+        const debateTitleDisplay = document.getElementById('debate-title-display');
         const debateDescription = document.getElementById('debate-description');
         const debateParticipantsList = document.getElementById('debate-participants');
         const transcriptContainer = document.getElementById('transcript-container');
@@ -155,16 +290,133 @@
         let eventSource = null;
         let isStoppedByUser = false; // Flag to track if user manually stopped the debate
 
-        // Attempts to fetch initial state - with empty data, we'll just show the start button
-        async function initializeUI() {
-            // Default initial UI state - just show the start button
+        // Initialize the UI
+        function initializeUI() {
             debateInfoDiv.classList.add('hidden');
             transcriptContainer.classList.add('hidden');
-            startButton.classList.remove('hidden');
             stopButton.classList.add('hidden');
             resumeButton.classList.add('hidden');
             resetButton.classList.add('hidden');
+            debateOptions.classList.remove('hidden');
             statusDiv.textContent = '';
+        }
+
+        // Show the create debate form
+        createDebateButton.addEventListener('click', () => {
+            createForm.classList.remove('hidden');
+            selectForm.classList.add('hidden');
+        });
+
+        // Show the select debate form
+        selectDebateButton.addEventListener('click', () => {
+            selectForm.classList.remove('hidden');
+            createForm.classList.add('hidden');
+        });
+
+        // Cancel buttons
+        createCancelButton.addEventListener('click', () => {
+            createForm.classList.add('hidden');
+        });
+
+        selectCancelButton.addEventListener('click', () => {
+            selectForm.classList.add('hidden');
+        });
+
+        // Add another agent to the form
+        addAgentButton.addEventListener('click', () => {
+            const agentForm = document.createElement('div');
+            agentForm.className = 'agent-form';
+            agentForm.innerHTML = `
+                <div class="form-group">
+                    <label>Name:</label>
+                    <input type="text" class="agent-name" placeholder="Participant name">
+                </div>
+                <div class="form-group">
+                    <label>Role:</label>
+                    <input type="text" class="agent-role" placeholder="Participant role">
+                </div>
+                <div class="form-group">
+                    <label>Persona:</label>
+                    <textarea class="agent-persona" rows="2" placeholder="Describe participant's persona"></textarea>
+                </div>
+            `;
+            agentsList.appendChild(agentForm);
+        });
+
+        // Start debate with custom configuration
+        createStartButton.addEventListener('click', () => {
+            const title = document.getElementById('debate-title').value;
+            const description = document.getElementById('debate-description-input').value;
+            const maxTurns = parseInt(document.getElementById('max-turns').value);
+            
+            // Collect agents data
+            const agents = [];
+            const agentForms = document.querySelectorAll('.agent-form');
+            
+            agentForms.forEach(form => {
+                const name = form.querySelector('.agent-name').value;
+                const role = form.querySelector('.agent-role').value;
+                const persona = form.querySelector('.agent-persona').value;
+                
+                if (name && role) {
+                    agents.push({
+                        name: name,
+                        role: role,
+                        persona: persona || ''
+                    });
+                }
+            });
+            
+            // Create config object
+            const config = {
+                title: title || 'Untitled Debate',
+                description: description || 'No description provided.',
+                max_turns: maxTurns || 10,
+                agents: agents
+            };
+            
+            // Send config to server
+            fetch('/create_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    startDebate(data.config_path);
+                }
+            });
+        });
+
+        // Start debate with selected example
+        selectStartButton.addEventListener('click', () => {
+            const selectedDebate = document.getElementById('debate-select').value;
+            startDebate('debate_examples/' + selectedDebate);
+        });
+
+        // Common function to start the debate
+        function startDebate(configPath) {
+            // Hide configuration forms
+            debateOptions.classList.add('hidden');
+            createForm.classList.add('hidden');
+            selectForm.classList.add('hidden');
+            
+            // Start the debate
+            fetch('/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ config_path: configPath })
+            })
+            .then(response => response.json())
+            .then(state => {
+                updateUI(state);
+                setupEventSource();
+            });
         }
 
         function updateUI(state) {
@@ -173,16 +425,16 @@
                 // If we received an empty state, just show the start button
                 debateInfoDiv.classList.add('hidden');
                 transcriptContainer.classList.add('hidden');
-                startButton.classList.remove('hidden');
                 stopButton.classList.add('hidden');
                 resumeButton.classList.add('hidden');
                 resetButton.classList.add('hidden');
+                debateOptions.classList.remove('hidden');
                 statusDiv.textContent = '';
                 return;
             }
 
             // Update Info
-            debateTitle.textContent = state.title || 'Untitled Debate';
+            debateTitleDisplay.textContent = state.title || 'Untitled Debate';
             debateDescription.textContent = state.description || 'No description.';
             debateParticipantsList.innerHTML = ''; // Clear old list
             if(state.agents) {
@@ -205,20 +457,19 @@
 
             debateInfoDiv.classList.toggle('hidden', !debateStarted);
             transcriptContainer.classList.toggle('hidden', !debateStarted);
+            debateOptions.classList.add('hidden');
 
             if (state.is_running) {
                 // Use next speaker name if available
                 statusDiv.textContent = state.next_speaker
                     ? `Generating response from ${state.next_speaker}...`
                     : 'Generating response...';
-                startButton.classList.add('hidden');
                 stopButton.classList.remove('hidden');
                 resumeButton.classList.add('hidden');
                 resetButton.classList.add('hidden');
                 isStoppedByUser = false; // Reset flag when running
             } else if (state.is_finished) {
                 statusDiv.textContent = 'Debate finished.';
-                startButton.classList.add('hidden');
                 stopButton.classList.add('hidden');
                 resumeButton.classList.add('hidden');
                 resetButton.classList.remove('hidden');
@@ -226,19 +477,17 @@
             } else { // Not running, not finished
                  if (state.current_turn >= state.max_turns) { // Paused at max turns
                     statusDiv.textContent = `Debate paused: Reached maximum turns (${state.max_turns}).`;
-                    startButton.classList.add('hidden');
                     stopButton.classList.add('hidden');
                     resumeButton.classList.remove('hidden');
                     resetButton.classList.remove('hidden');
                  } else if (state.transcript && state.transcript.length > 0) { // Stopped mid-debate before max turns
                     statusDiv.textContent = 'Debate paused.';
-                    startButton.classList.add('hidden');
                     stopButton.classList.add('hidden');
                     resumeButton.classList.remove('hidden');
                     resetButton.classList.remove('hidden');
                  } else { // Initial state
                     statusDiv.textContent = ''; // No initial message
-                    startButton.classList.remove('hidden');
+                    debateOptions.classList.remove('hidden');
                     stopButton.classList.add('hidden');
                     resumeButton.classList.add('hidden');
                     resetButton.classList.add('hidden');
@@ -301,25 +550,6 @@
         }
 
         // --- Event Listeners ---
-        startButton.addEventListener('click', async () => {
-            try {
-                isStoppedByUser = false; // Reset flag
-                statusDiv.textContent = 'Starting debate...';
-                const response = await fetch('/start', { method: 'POST' });
-                if (!response.ok) throw new Error('Failed to start');
-                
-                // Use the state returned directly from the start endpoint
-                const state = await response.json();
-                updateUI(state);
-                
-                // Start listening for debate updates
-                setupEventSource();
-            } catch (error) {
-                console.error("Error starting debate:", error);
-                statusDiv.textContent = `Error: ${error.message}`;
-            }
-        });
-
         stopButton.addEventListener('click', async () => {
             try {
                 isStoppedByUser = true; // Set flag immediately
@@ -367,10 +597,10 @@
                 transcriptDiv.innerHTML = '';
                 debateInfoDiv.classList.add('hidden');
                 transcriptContainer.classList.add('hidden');
-                startButton.classList.remove('hidden');
                 stopButton.classList.add('hidden');
                 resumeButton.classList.add('hidden');
                 resetButton.classList.add('hidden');
+                debateOptions.classList.remove('hidden');
                 statusDiv.textContent = '';
             } catch (error) {
                 console.error("Error resetting debate:", error);

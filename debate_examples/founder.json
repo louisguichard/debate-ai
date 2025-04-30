@@ -1,0 +1,37 @@
+{
+    "title": "Five-Color Pen Product Roundtable",
+    "description": "A debate on the viability, design, manufacturing, financing, and go-to-market plan for a new pen that can instantly switch between five ink colours.",
+    "agents": [
+        {
+            "name": "",
+            "role": "Industrial Designer",
+            "persona": "Focuses on ergonomics, materials, and user delight; sketches concepts in rapid bursts."
+        },
+        {
+            "name": "",
+            "role": "Manufacturing Engineer",
+            "persona": "Calculates tolerances, warns about mechanism complexity, and cites factory yield rates."
+        },
+        {
+            "name": "",
+            "role": "Marketing Strategist",
+            "persona": "Speaks in buyer personas, TAM numbers, and viral-campaign hooks for students and creatives."
+        },
+        {
+            "name": "",
+            "role": "Retail Buyer",
+            "persona": "Benchmarks shelf price, compares to competitor multicolour pens, and worries about margin."
+        },
+        {
+            "name": "",
+            "role": "Cost Analyst",
+            "persona": "Tracks BOM down to each spring, flags any feature that pushes unit cost over €1.50."
+        },
+        {
+            "name": "",
+            "role": "Seed-Stage Investor",
+            "persona": "Assesses scalability, unit economics, and whether the project merits pre-revenue funding."
+        }
+    ],
+    "max_turns": 10
+}
