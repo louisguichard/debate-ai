@@ -44,7 +44,7 @@ def start_debate():
     global debate
     config_path = request.json.get("config_path", "debate_config.json")
     print(f"Starting debate with config: {config_path}")
-    debate = Debate(config_path)
+    debate = Debate(config_path=config_path)
     debate.start()
     return jsonify(debate.get_state())
 

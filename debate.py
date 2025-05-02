@@ -27,25 +27,28 @@ class Debate:
     """Manages the state and flow of the AI debate."""
 
     def __init__(
-        self, config_path="debate_config.json", model_name="gemini-2.0-flash-lite"
+        self,
+        config=None,
+        config_path=None,
+        model_name="gemini-2.0-flash-lite",
     ):
         """Initialize the debate with its parameters."""
-        self.config_path = config_path
+        self.config = config
         self.model_name = model_name
         self.client = genai.Client(api_key=GEMINI_API_KEY)
         self.reset()
-        self.initialize_debate()
+        self.initialize_debate(config_path)
 
-    def initialize_debate(self):
+    def initialize_debate(self, config_path=None):
         """Loads debate configuration from the JSON file."""
 
-        # Load the debate config
-        with open(self.config_path, "r") as f:
-            config = json.load(f)
+        if not self.config:  # load from config_path
+            with open(config_path, "r") as f:
+                self.config = json.load(f)
 
         # Create agents from config
         agents = []
-        for agent_config in config["agents"]:
+        for agent_config in self.config["agents"]:
             agent = Agent(
                 name=agent_config["name"],
                 role=agent_config["role"],
@@ -64,9 +67,9 @@ class Debate:
         agents = [moderator] + agents
 
         # Initialize debate parameters
-        self.title = config["title"]
-        self.description = config["description"]
-        self.max_turns = config.get("max_turns", 10)
+        self.title = self.config["title"]
+        self.description = self.config["description"]
+        self.max_turns = self.config.get("max_turns", 10)
         self.agents = agents
 
         # Initialize the next speaker

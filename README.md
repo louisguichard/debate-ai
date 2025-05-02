@@ -28,20 +28,25 @@ A Python web application to generate debates between AI agents using the Gemini 
 
 ## Usage
 
-1. Configure your debate by editing the `debate_config.json` file. Define:
-   - Debate title and description
-   - Number of max turns 
-   - Agent profiles (name, role, persona)
+**Run the web application using Streamlit**
+```
+streamlit run st_app.py
+```
+This will open the application in your default web browser (usually `http://localhost:8501`).
+* Use the web interface to **create a new debate configuration** or **load an existing example**.
 
-2. Run the web application:
+**Alternative: Flask Application**
+
+1. **Configure your debate:** Edit the `debate_config.json` file or choose an example from `debate_examples/`. Define:
+   * Debate title and description
+   * Number of max turns
+   * Agent profiles (name, role, persona)
+
+2. **Run the Flask application:**
    ```
    python app.py
    ```
 
-3. Open a web browser and navigate to `http://localhost:5000`
+3. **Open a web browser** and navigate to `http://localhost:5000`.
 
-4. The web interface will display the debate in real time.
-
-5. The debate will conclude when either:
-   - Maximum turns are reached, or
-   - The moderator concluding the debate.
+4. The web interface will display the debate based on the loaded configuration.
