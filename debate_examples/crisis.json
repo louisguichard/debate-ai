@@ -5,7 +5,8 @@
         {
             "name": "",
             "role": "Head of Communications",
-            "persona": "Seeks a swift, narrative-owning statement and evaluates press-release timing."
+            "persona": "Seeks a swift, narrative-owning statement and evaluates press-release timing.",
+            "is_moderator": true
         },
         {
             "name": "",

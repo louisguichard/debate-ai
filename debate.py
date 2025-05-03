@@ -14,13 +14,19 @@ if not GEMINI_API_KEY:
 class Agent:
     """Represents a participant in the debate."""
 
-    def __init__(self, name, role, persona):
+    def __init__(self, name, role, persona, is_moderator=False):
         self.name = name
         self.role = role
         self.persona = persona
+        self.is_moderator = is_moderator
 
     def to_dict(self):
-        return {"name": self.name, "role": self.role, "persona": self.persona}
+        return {
+            "name": self.name,
+            "role": self.role,
+            "persona": self.persona,
+            "is_moderator": self.is_moderator,
+        }
 
 
 class Debate:
@@ -53,18 +59,20 @@ class Debate:
                 name=agent_config["name"],
                 role=agent_config["role"],
                 persona=agent_config.get("persona", ""),
+                is_moderator=agent_config.get("is_moderator", False),
             )
             agents.append(agent)
 
         # Create moderator if not in the list
-        has_moderator = any("moderator" in agent.role.lower() for agent in agents)
+        has_moderator = any(agent.is_moderator for agent in agents)
         if not has_moderator:
             moderator = Agent(
                 name="Moderator",
                 role="Debate Moderator",
                 persona="Your task is to introduce the debate and participants, then guide the discussion. You may introduce new aspects, ask specific participants to address certain points, or summarize key points made. If you believe the debate should conclude now, clearly state 'The debate is now concluded' at the end of your message.",
+                is_moderator=True,
             )
-        agents = [moderator] + agents
+            agents = [moderator] + agents
 
         # Initialize debate parameters
         self.title = self.config["title"]
@@ -121,6 +129,9 @@ Based on the debate so far, provide your next contribution as {agent.name}.
 Your response should reflect your role and persona.
 Be concise and to the point. You can respond with just a few words, a sentence or sometimes a few sentences.
 """
+        if agent.is_moderator:
+            debate_context += "You will be the moderator of this debate. After introducing the debate and its participants, you will guide the discussion. If the debate has come to an end, clearly state 'The debate is now closed' at the end of your message."
+
         return debate_context
 
     def update_next_speaker(self):
@@ -128,7 +139,7 @@ Be concise and to the point. You can respond with just a few words, a sentence o
         # Moderator is always the first speaker
         if self.current_turn == 0:
             for agent in self.agents:
-                if "moderator" in agent.role.lower():
+                if agent.is_moderator:
                     self.next_speaker = agent
                     return
             # If no moderator found

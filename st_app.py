@@ -34,7 +34,9 @@ def init_session_state():
         st.session_state.debate_state = {}
 
     if "agents" not in st.session_state:
-        st.session_state.agents = [{"name": "", "role": "", "persona": ""}]
+        st.session_state.agents = [
+            {"name": "", "role": "", "persona": "", "is_moderator": False}
+        ]
 
     if "error_message" not in st.session_state:
         st.session_state.error_message = None
@@ -53,6 +55,9 @@ def init_session_state():
 
     if "remove_agent" not in st.session_state:
         st.session_state.remove_agent = None
+
+    if "moderator_idx" not in st.session_state:
+        st.session_state.moderator_idx = None
 
 
 # Initialize session variables
@@ -81,7 +86,9 @@ with col1:
     ):
         # Add agent
         if st.session_state.add_agent:
-            st.session_state.agents.append({"name": "", "role": "", "persona": ""})
+            st.session_state.agents.append(
+                {"name": "", "role": "", "persona": "", "is_moderator": False}
+            )
             st.session_state.add_agent = False
             st.rerun()
 
@@ -91,6 +98,12 @@ with col1:
             st.session_state.agents.pop(agent_idx)
             st.session_state.remove_agent = None
             st.rerun()
+
+        # Set moderator
+        if st.session_state.moderator_idx is not None:
+            mod_idx = st.session_state.moderator_idx
+            for i in range(len(st.session_state.agents)):
+                st.session_state.agents[i]["is_moderator"] = i == mod_idx
 
         # Debate form
         with st.form("create_debate_form"):
@@ -127,12 +140,24 @@ with col1:
                     height=100,
                 )
 
-                # Remove agent button
-                if len(agents) > 1:
-                    rm_col1, rm_col2, rm_col3 = st.columns([1, 1, 1])  # center button
-                    with rm_col2:
+                # Moderator checkbox and delete button
+                _, moderator_col, _, delete_col, _ = st.columns([1, 4, 1, 4, 1])
+
+                with moderator_col:
+                    is_moderator = st.session_state.moderator_idx == i
+                    if st.checkbox(
+                        "Set as moderator",
+                        value=is_moderator,
+                        key=f"mod_{i}",
+                    ):
+                        st.session_state.moderator_idx = i
+                    elif is_moderator:  # if it was checked but now unchecked
+                        st.session_state.moderator_idx = None
+
+                with delete_col:
+                    if len(agents) > 1:
                         if st.form_submit_button(
-                            f"❌ Remove participant {i + 1}", use_container_width=True
+                            f"❌ Remove participant {i + 1}",
                         ):
                             st.session_state.remove_agent = i
 
@@ -240,9 +265,14 @@ if config:
             st.session_state.debate = None
             st.session_state.debate_state = {}
             st.session_state.debate_config = None
-            st.session_state.agents = [{"name": "", "role": "", "persona": ""}]
+            st.session_state.agents = [
+                {"name": "", "role": "", "persona": "", "is_moderator": False}
+            ]
             st.session_state.add_agent = False
             st.session_state.remove_agent = None
+            st.session_state.moderator_idx = None
+            st.session_state.create_expander = True
+            st.session_state.examples_expander = True
             st.rerun()
 
     # Status display
@@ -262,7 +292,11 @@ if config:
     agent_index = 0
     for agent in state["agents"]:
         with cols[agent_index % len(cols)]:
-            st.markdown(f"**{agent['name']}**")
+            # Add a moderator badge if this agent is the moderator
+            if agent.get("is_moderator", False):
+                st.markdown(f"**{agent['name']}** 🎭")
+            else:
+                st.markdown(f"**{agent['name']}**")
             st.caption(f"_{agent['role']}_")
         agent_index += 1
 
