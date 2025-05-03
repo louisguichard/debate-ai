@@ -15,7 +15,7 @@ class Agent:
     """Represents a participant in the debate."""
 
     def __init__(self, name, role, persona, is_moderator=False):
-        self.name = name
+        self.name = name if name else role
         self.role = role
         self.persona = persona
         self.is_moderator = is_moderator
