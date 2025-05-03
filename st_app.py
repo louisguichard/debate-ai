@@ -59,6 +59,23 @@ def init_session_state():
     if "moderator_idx" not in st.session_state:
         st.session_state.moderator_idx = None
 
+    if "config_to_load" not in st.session_state:
+        st.session_state.config_to_load = None
+
+
+def load_config_into_form(config):
+    """Load a config into the debate creation form"""
+
+    # Add agents
+    st.session_state.agents = []
+    for idx, agent in enumerate(config["agents"]):
+        st.session_state.agents.append(agent)
+        if agent.get("is_moderator", False):
+            st.session_state.moderator_idx = idx
+
+    # Set config to load
+    st.session_state.config_to_load = config
+
 
 # Initialize session variables
 init_session_state()
@@ -70,6 +87,7 @@ st.markdown(
     "<h3 style='text-align: center; color: grey;'>Watch AI agents debate topics in real-time</h3>",
     unsafe_allow_html=True,
 )
+
 
 # # # # # # # # # # # # #
 # Debate configuration
@@ -105,14 +123,23 @@ with col1:
             for i in range(len(st.session_state.agents)):
                 st.session_state.agents[i]["is_moderator"] = i == mod_idx
 
+        # Get default values if a config is being loaded
+        default_title = "My Custom Debate"
+        default_description = "A lively discussion on a custom topic."
+        default_max_turns = 20
+
+        if st.session_state.config_to_load:
+            config = st.session_state.config_to_load
+            default_title = config.get("title", "")
+            default_description = config.get("description", "")
+            default_max_turns = config.get("max_turns", 20)
+
         # Debate form
         with st.form("create_debate_form"):
-            title = st.text_input("Debate Title", "My Custom Debate")
-            description = st.text_area(
-                "Description", "A lively discussion on a custom topic."
-            )
+            title = st.text_input("Debate Title", default_title)
+            description = st.text_area("Description", default_description)
             max_turns = st.number_input(
-                "Maximum Turns", min_value=1, max_value=100, value=20
+                "Maximum Turns", min_value=1, max_value=100, value=default_max_turns
             )
             agents = st.session_state.agents
             for i, agent in enumerate(agents):
@@ -188,7 +215,6 @@ with col1:
                     if st.session_state.create_expander:
                         st.session_state.create_expander = False
                         st.session_state.examples_expander = False
-                        st.rerun()
 
 # Load existing debate expander
 with col2:
@@ -196,6 +222,7 @@ with col2:
     with st.expander(
         "Select a debate example", expanded=st.session_state.examples_expander
     ):
+        st.markdown("### Select from examples:")
         examples = st.session_state.debate_examples
         options_list = ["Select a debate to load..."] + [
             config["title"] for config in examples
@@ -209,14 +236,30 @@ with col2:
         )
 
         if selected_example != "Select a debate to load...":
-            st.session_state.debate_config = examples[
-                options_list[1:].index(selected_example)
-            ]
-            # Collapse the expanders
-            if st.session_state.examples_expander:
-                st.session_state.create_expander = False
-                st.session_state.examples_expander = False
+            selected_config = examples[options_list[1:].index(selected_example)]
+            if (
+                not st.session_state.config_to_load
+                or selected_config["title"] != st.session_state.config_to_load["title"]
+            ):
+                load_config_into_form(selected_config)
                 st.rerun()
+
+        # Add file uploader at the bottom
+        st.markdown("---")
+        st.markdown("### Or upload your own config file:")
+
+        uploaded_file = st.file_uploader("Upload a debate config file", type=["json"])
+        if uploaded_file is not None:
+            try:
+                config = json.load(uploaded_file)
+                if (
+                    not st.session_state.config_to_load
+                    or config["title"] != st.session_state.config_to_load["title"]
+                ):
+                    load_config_into_form(config)
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error loading config file: {e}")
 
 
 # # # # # # # # # # # # #
