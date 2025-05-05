@@ -1,7 +1,7 @@
 # To Do List
 
-- [ ] Add voices to generate a podcast
-- [ ] Automaticly attribute voices depending on caracters
+- [x] Add voices to generate a podcast
+- [x] Automaticly attribute voices depending on caracters
 - [x] Add a user interface
 - [ ] Export debate
 - [ ] Export podcast

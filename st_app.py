@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import json
 import time
+from io import BytesIO
+from pydub import AudioSegment
 
 from debate import Debate
 
@@ -61,6 +63,15 @@ def init_session_state():
 
     if "config_to_load" not in st.session_state:
         st.session_state.config_to_load = None
+
+    if "enable_voice" not in st.session_state:
+        st.session_state.enable_voice = False
+
+    if "audio_segments" not in st.session_state:
+        st.session_state.audio_segments = []
+
+    if "next_turn_time" not in st.session_state:
+        st.session_state.next_turn_time = 0
 
 
 def load_config_into_form(config):
@@ -136,6 +147,15 @@ with col1:
 
         # Debate form
         with st.form("create_debate_form"):
+            # Voice toggle
+            enable_voice_in_form = st.toggle(
+                "Enable Voice Synthesis 🔊",
+                value=st.session_state.config_to_load.get("enable_voice", False)
+                if st.session_state.config_to_load
+                else False,
+                key="enable_voice_form",
+            )
+
             title = st.text_input("Debate Title", default_title)
             description = st.text_area("Description", default_description)
             max_turns = st.number_input(
@@ -208,8 +228,10 @@ with col1:
                         "description": description,
                         "max_turns": max_turns,
                         "agents": agents,
+                        "enable_voice": enable_voice_in_form,
                     }
                     st.session_state.debate_config = config
+                    st.session_state.audio_segments = []
 
                     # Collapse the expanders
                     if st.session_state.create_expander:
@@ -336,6 +358,7 @@ if config:
             st.session_state.moderator_idx = None
             st.session_state.create_expander = True
             st.session_state.examples_expander = True
+            st.session_state.audio_segments = []
             st.rerun()
 
     # Status display
@@ -371,9 +394,21 @@ if config:
     transcript_container = st.container(height=500)
     if state.get("transcript"):
         with transcript_container:
-            for entry in state["transcript"]:
-                with st.chat_message(name=entry["speaker"]):
-                    st.markdown(entry["message"])
+            for i, entry in enumerate(state["transcript"]):
+                if st.session_state.debate_config.get("enable_voice", False):
+                    with st.chat_message(name=entry["speaker"]):
+                        st.markdown(entry["message"])
+                        audio_bytes = st.session_state.audio_segments[i]
+                        st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+                        audio_segment = AudioSegment.from_file(
+                            BytesIO(audio_bytes), format="mp3"
+                        )
+                        audio_duration = len(audio_segment) / 1000.0
+                        st.session_state.next_turn_time = time.time() + audio_duration
+                else:
+                    with st.chat_message(name=entry["speaker"]):
+                        st.markdown(entry["message"])
+
     else:
         with transcript_container:
             st.write("Debate hasn't started yet.")
@@ -381,10 +416,30 @@ if config:
     # Flow
     if debate and state.get("is_running") and not state.get("is_finished"):
         new_entry = debate.run_next_turn()
+
+        # Synthesize audio if enabled and a new entry was generated
+        if st.session_state.debate_config.get("enable_voice", False) and new_entry:
+            try:
+                audio_bytes = debate.synthesize_speech(
+                    agent_name=new_entry["speaker"],
+                    language=debate.language,
+                    text=new_entry["message"],
+                )
+                st.session_state.audio_segments.append(audio_bytes)
+
+            except Exception as e:
+                st.error(f"Failed to synthesize speech: {e}")
+                st.session_state.audio_segments.append(None)
+
+        elif new_entry:  # if voice is disabled
+            st.session_state.audio_segments.append(None)
+
         if not debate.debate_finished:
             debate.update_next_speaker()
         st.session_state.debate_state = debate.get_state()
-        if not debate.get_state().get("is_finished"):
-            time.sleep(3)
 
+        # Wait for the next turn to play
+        current_time = time.time()
+        if st.session_state.next_turn_time > current_time:
+            time.sleep(st.session_state.next_turn_time - current_time)
         st.rerun()

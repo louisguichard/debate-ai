@@ -3,12 +3,55 @@ import os
 import json
 import random
 from dotenv import load_dotenv
+from google.cloud import texttospeech
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise ValueError("Please set GEMINI_API_KEY in environment variables.")
+
+tts_client = texttospeech.TextToSpeechClient()
+
+
+google_chirp3_voices = {
+    "Aoede": "neutral female voice",
+    "Puck": "neutral male voice",
+    "Charon": "deep male voice",
+    "Kore": "high female voice",
+    "Fenrir": "young male voice",
+    "Leda": "gentle female voice",
+    "Orus": "dynamic male voice",
+    "Zephyr": "young female voice",
+}
+
+
+def choose_voices(agents, client, model_name):
+    """Choose a voice for each agent using Gemini."""
+
+    remaining_voices = list(google_chirp3_voices.keys())
+    for agent in agents:
+        prompt = f"""
+        Choose a voice for the following agent:
+        - Name: {agent.name}
+        - Role: {agent.role}
+        - Persona: {agent.persona}
+
+        The available voices are: {", ".join([f"{voice} ({google_chirp3_voices[voice]})" for voice in remaining_voices])}
+
+        Simply respond with the name of the voice.
+        """
+        response = client.models.generate_content(model=model_name, contents=prompt)
+        voice = response.text.strip()
+        if voice in remaining_voices:
+            agent.voice = voice
+            remaining_voices.remove(voice)
+        else:
+            print(
+                f"Warning: Voice {voice} not available. Falling back to random voice."
+            )
+            agent.voice = remaining_voices[0]
+            remaining_voices = remaining_voices[1:]
 
 
 class Agent:
@@ -42,6 +85,7 @@ class Debate:
         self.config = config
         self.model_name = model_name
         self.client = genai.Client(api_key=GEMINI_API_KEY)
+        self.tts_client = tts_client
         self.reset()
         self.initialize_debate(config_path)
 
@@ -73,6 +117,10 @@ class Debate:
                 is_moderator=True,
             )
             agents = [moderator] + agents
+
+        # Set voices
+        if self.config.get("enable_voice", False):
+            choose_voices(agents, self.client, self.model_name)
 
         # Initialize debate parameters
         self.title = self.config["title"]
@@ -247,6 +295,36 @@ Do not include any other text, reasoning, or formatting. Just the name.
         self.transcript.append(entry)
         self.current_turn += 1
         return entry
+
+    def synthesize_speech(self, agent_name, language, text):
+        """Synthesizes speech from text using Google Cloud TTS."""
+
+        # Find the agent by name
+        for agent in self.agents:
+            if agent.name.lower() == agent_name.lower():
+                break
+        else:
+            raise ValueError(f"Agent {agent_name} not found.")
+
+        # Voice
+        language_code = "fr-FR" if language == "French" else "en-US"
+        voice_name = agent.voice
+        voice = texttospeech.VoiceSelectionParams(
+            language_code=language_code,
+            name=f"{language_code}-Chirp3-HD-{voice_name}",
+        )
+
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            speaking_rate=1.1,
+        )
+        synthesis_input = texttospeech.SynthesisInput(text=text)
+
+        response = self.tts_client.synthesize_speech(
+            input=synthesis_input, voice=voice, audio_config=audio_config
+        )
+
+        return response.audio_content
 
     def get_state(self):
         """Returns the current state of the debate for the UI."""

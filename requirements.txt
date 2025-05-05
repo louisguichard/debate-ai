@@ -2,3 +2,5 @@ google-genai==1.12.1
 python-dotenv==1.0.0
 flask==3.1.0
 streamlit==1.45.0
+google-cloud-texttospeech==2.26.0
+pydub==0.25.1
