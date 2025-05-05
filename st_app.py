@@ -443,3 +443,57 @@ if config:
         if st.session_state.next_turn_time > current_time:
             time.sleep(st.session_state.next_turn_time - current_time)
         st.rerun()
+
+    # Export options
+    st.markdown("---")
+    st.subheader("Export Options")
+    export_cols = st.columns([1, 1, 1])
+
+    # Export config button
+    with export_cols[0]:
+        config_json = json.dumps(st.session_state.debate_config, indent=4)
+        st.download_button(
+            label="Export Config 💾",
+            data=config_json,
+            file_name="debateai_config.json",
+            mime="application/json",
+            key="download_config",
+            use_container_width=True,
+        )
+
+    # Export transcript
+    with export_cols[1]:
+        transcript_text = ""
+        for entry in state["transcript"]:
+            transcript_text += f"{entry['speaker']}:\n{entry['message']}\n\n"
+        st.download_button(
+            label="Export Transcript 📝",
+            data=transcript_text,
+            file_name=f"{state['title'].replace(' ', '_')}_transcript.txt",
+            mime="text/plain",
+            key="download_transcript",
+            use_container_width=True,
+        )
+
+    # Export podcast
+    with export_cols[2]:
+        if st.session_state.debate_config.get("enable_voice", False):
+            combined = AudioSegment.empty()
+            for audio_bytes in st.session_state.audio_segments:
+                if audio_bytes:
+                    segment = AudioSegment.from_file(BytesIO(audio_bytes), format="mp3")
+                    combined += segment
+
+            # Convert to bytes for download
+            buffer = BytesIO()
+            combined.export(buffer, format="mp3")
+            buffer.seek(0)
+
+            st.download_button(
+                label="Export Podcast 🎧",
+                data=buffer,
+                file_name="podcast.mp3",
+                mime="audio/mp3",
+                key="download_podcast",
+                use_container_width=True,
+            )
