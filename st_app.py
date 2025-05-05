@@ -266,7 +266,27 @@ with col2:
 # Start debate
 # # # # # # # # # # # # #
 
+st.markdown('<div id="debate-section"></div>', unsafe_allow_html=True)
 st.markdown("--- ")  # Add a separator before the active debate
+
+
+def auto_scroll_to_debate():
+    st.components.v1.html(
+        """
+        <script>
+            function scrollToDebate() {
+                const element = window.parent.document.getElementById('debate-section');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+            window.addEventListener('load', scrollToDebate);
+            scrollToDebate();
+        </script>
+        """,
+        height=0,
+    )
+
 
 config = st.session_state.debate_config
 if config:
@@ -342,6 +362,9 @@ if config:
                 st.markdown(f"**{agent['name']}**")
             st.caption(f"_{agent['role']}_")
         agent_index += 1
+
+    # Auto-scroll to debate section
+    auto_scroll_to_debate()
 
     # Transcript
     st.subheader("Transcript")
