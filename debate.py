@@ -80,8 +80,38 @@ class Debate:
         self.max_turns = self.config.get("max_turns", 10)
         self.agents = agents
 
+        # Set debate language
+        self.language = self.detect_language()
+
         # Initialize the next speaker
         self.update_next_speaker()
+
+    def detect_language(self):
+        """Auto-detect the debate language based on title, description, and personas."""
+        # Combine all texts
+        texts = f"{self.title}\n{self.description}"
+        for agent in self.agents:
+            texts += f"\n{agent.persona}"
+
+        # Ask Gemini to detect the language
+        prompt = f"""
+        Based on the following texts, determine what language it's in.
+        Simply respond with the name of the language in English. The only available options are the following: English, French or Other.
+        
+        Texts to analyze:
+        {texts}
+        """
+
+        response = self.client.models.generate_content(
+            model=self.model_name, contents=prompt
+        )
+        detected_language = response.text.strip()
+        if detected_language not in ["English", "French", "Other"]:
+            print(
+                f"Warning: Auto-detected language {detected_language} is not in the available options. Falling back to English."
+            )
+            detected_language = "English"
+        return detected_language
 
     def reset(self):
         """Resets the debate state to its initial condition."""
@@ -109,6 +139,7 @@ class Debate:
 Debate topic: {self.title}
 Debate description: {self.description}
 Participants: {", ".join([f"{a.name} ({a.role})" for a in self.agents])}
+Debate language: {self.language}
 
 You are {agent.name}, playing the role of {agent.role}.
 Your persona: {agent.persona}
@@ -132,6 +163,7 @@ Be concise and to the point. You can respond with just a few words, a sentence o
         if agent.is_moderator:
             debate_context += "You will be the moderator of this debate. After introducing the debate and its participants, you will guide the discussion. If the debate has come to an end, clearly state 'The debate is now closed' at the end of your message."
 
+        debate_context += f"You MUST respond in {self.language} language."
         return debate_context
 
     def update_next_speaker(self):
@@ -228,4 +260,5 @@ Do not include any other text, reasoning, or formatting. Just the name.
             "is_running": self.debate_running,
             "is_finished": self.debate_finished,
             "next_speaker": self.next_speaker.name if self.next_speaker else None,
+            "language": self.language,
         }
